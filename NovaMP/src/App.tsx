@@ -1,47 +1,61 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
 
-const servers = [
-  {
-    id: 1,
-    name: "NovaRP Official",
-    players: 124,
-    maxPlayers: 256,
-    mode: "Roleplay",
-    ip: "play.novarp.ro:22005",
-  },
-  {
-    id: 2,
-    name: "Nova Freeroam",
-    players: 45,
-    maxPlayers: 128,
-    mode: "Freeroam",
-    ip: "free.novarp.ro:22005",
-  },
-  {
-    id: 3,
-    name: "Nova Drift",
-    players: 23,
-    maxPlayers: 64,
-    mode: "Drift",
-    ip: "drift.novarp.ro:22005",
-  },
-];
+const isMac = navigator.userAgent.includes("Mac OS X");
+const appWindow = getCurrentWindow();
+
+interface Server {
+  id: string;
+  name: string;
+  ip: string;
+  port: string;
+  mode: string;
+  players: number;
+  maxPlayers: number;
+}
 
 function App() {
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [servers, setServers] = useState<Server[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchServers();
+    const interval = setInterval(fetchServers, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchServers = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/servers");
+      const data = await res.json();
+      setServers(data);
+    } catch (err) {
+      console.error("Masterlist offline");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="launcher">
-      <div className="titlebar">
-        <span className="titlebar-title">NovaMP</span>
-        <div className="titlebar-buttons">
-          <button onClick={() => getCurrentWindow().minimize()}>─</button>
-          <button onClick={() => getCurrentWindow().close()}>✕</button>
+      {!isMac && (
+        <div className="titlebar" data-tauri-drag-region>
+          <span className="titlebar-logo">Nova<span>MP</span></span>
+          <div className="titlebar-buttons">
+            <button className="tb-btn" onClick={() => appWindow.minimize()} title="Minimize">
+              <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+            </button>
+            <button className="tb-btn" onClick={() => appWindow.toggleMaximize()} title="Maximize">
+              <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" strokeWidth="1" fill="none"/></svg>
+            </button>
+            <button className="tb-btn close" onClick={() => appWindow.close()} title="Close">
+              <svg width="10" height="10" viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" strokeWidth="1.5"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
-
+      )}
       <div className="main">
         <div className="sidebar">
           <div className="logo">
@@ -61,6 +75,8 @@ function App() {
           </div>
 
           <div className="server-list">
+            {loading && <p style={{color: "#888"}}>Se incarca serverele...</p>}
+            {!loading && servers.length === 0 && <p style={{color: "#888"}}>Niciun server online</p>}
             {servers.map((server) => (
               <div
                 key={server.id}

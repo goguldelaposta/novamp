@@ -22,43 +22,49 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 20px;
+  padding: 0 16px;
+  height: 36px;
   background: #0d0d0d;
   border-bottom: 1px solid #222;
-  -webkit-app-region: drag;
-  height: 40px;
+  user-select: none;
+  flex-shrink: 0;
 }
 
-.titlebar-title {
+.titlebar-logo {
   font-size: 13px;
-  color: #888;
-  font-weight: 600;
+  font-weight: 700;
+  color: #fff;
+}
+
+.titlebar-logo span {
+  color: #6c63ff;
 }
 
 .titlebar-buttons {
   display: flex;
-  gap: 8px;
-  -webkit-app-region: no-drag;
+  gap: 4px;
 }
 
-.titlebar-buttons button {
-  background: #222;
+.tb-btn {
+  background: transparent;
   border: none;
-  color: #888;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  color: #666;
+  width: 32px;
+  height: 24px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s;
 }
 
-.titlebar-buttons button:hover {
-  background: #333;
+.tb-btn:hover {
+  background: #222;
   color: #fff;
 }
 
-.titlebar-buttons button:last-child:hover {
+.tb-btn.close:hover {
   background: #ff4444;
   color: #fff;
 }

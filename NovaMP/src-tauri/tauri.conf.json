@@ -11,18 +11,17 @@
   },
   "app": {
     "windows": [
-  {
-    "title": "NovaMP",
-    "width": 1280,
-    "height": 720,
-    "minWidth": 1280,
-    "minHeight": 720,
-    "resizable": true,
-    "decorations": false,
-    "titleBarStyle": "Overlay",
-    "center": true
-  }
-],
+      {
+        "title": "NovaMP",
+        "width": 1280,
+        "height": 720,
+        "minWidth": 1280,
+        "minHeight": 720,
+        "resizable": true,
+        "decorations": false,
+        "center": true
+      }
+    ],
     "security": {
       "csp": null
     }
