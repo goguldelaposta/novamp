@@ -6,7 +6,41 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  # ── 1. Create a draft release so both build jobs have a target to upload to ──
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create.outputs.result }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create draft release
+        id: create
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          result-encoding: string
+          script: |
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ github.ref_name }}',
+              name: 'NovaMP ${{ github.ref_name }}',
+              body: [
+                'Descarca installerul potrivit pentru sistemul tau de mai jos.',
+                '',
+                '**Windows** → `.msi` sau `.exe`',
+                '**macOS** → `.dmg`',
+              ].join('\n'),
+              draft: true,
+              prerelease: false,
+            });
+            return String(data.id);
+
+  # ── 2. Build for each platform and upload to the draft release ──
+  build:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -19,8 +53,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -43,21 +76,31 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build and publish release
+      - name: Build and upload to draft release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: NovaMP ${{ github.ref_name }}
-          releaseBody: |
-            Descarca installerul potrivit pentru sistemul tau de mai jos.
-
-            **Windows** → `.msi` sau `.exe`
-            **macOS** → `.dmg`
-          releaseDraft: false
-          prerelease: false
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           includeUpdaterJson: true
           args: ${{ matrix.args }}
+
+  # ── 3. Publish the release once both builds succeed ──
+  publish-release:
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Publish release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ needs.create-release.outputs.release_id }},
+              draft: false,
+            });
