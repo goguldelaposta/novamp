@@ -44,11 +44,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "category": "Music",
     "macOS": {
       "minimumSystemVersion": "10.15",
       "signingIdentity": "-",
-      "entitlements": "entitlements.plist",
-      "category": "public.app-category.music"
+      "entitlements": "entitlements.plist"
     }
   }
 }
