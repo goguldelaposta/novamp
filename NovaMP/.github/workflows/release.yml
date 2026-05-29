@@ -41,9 +41,10 @@ jobs:
       - name: Rust build cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: NovaMP/src-tauri -> target
 
       - name: Install frontend dependencies
+        working-directory: NovaMP
         run: npm ci
 
       - name: Build and publish release
@@ -53,6 +54,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: NovaMP
           tagName: ${{ github.ref_name }}
           releaseName: NovaMP ${{ github.ref_name }}
           releaseBody: |
