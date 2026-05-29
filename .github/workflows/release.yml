@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  # ── 1. Create a draft release so both build jobs have a single target ──
+  # ── 1. Create a draft release ──────────────────────────────────────────────
   create-release:
     runs-on: ubuntu-latest
     outputs:
@@ -31,26 +31,16 @@ jobs:
                 'Descarca installerul potrivit pentru sistemul tau de mai jos.',
                 '',
                 '**Windows** → `.msi` sau `.exe`',
-                '**macOS** → `.dmg`',
               ].join('\n'),
               draft: true,
               prerelease: false,
             });
             return String(data.id);
 
-  # ── 2. Build each platform in parallel, upload artifacts only ──
+  # ── 2. Build Windows ───────────────────────────────────────────────────────
   build:
     needs: create-release
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            args: --target universal-apple-darwin
-          - platform: windows-latest
-            args: ''
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -63,10 +53,6 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Add macOS universal targets
-        if: matrix.platform == 'macos-latest'
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Rust build cache
         uses: swatinem/rust-cache@v2
@@ -84,11 +70,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
-          # No includeUpdaterJson here — both jobs would race and overwrite each other.
-          # latest.json is assembled in publish-release after both builds finish.
-          args: ${{ matrix.args }}
 
-  # ── 3. Assemble latest.json from uploaded .sig files, then publish ──
+  # ── 3. Assemble latest.json, then publish ─────────────────────────────────
   publish-release:
     needs: [create-release, build]
     runs-on: ubuntu-latest
@@ -101,23 +84,15 @@ jobs:
     steps:
       - name: Generate latest.json
         run: |
-          # Fetch all assets uploaded by the two build jobs
           ASSETS=$(gh api "repos/$REPO/releases/$RELEASE_ID/assets" --paginate)
 
-          # Helpers
-          get_id()  { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .id"               | head -1; }
-          get_url() { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .browser_download_url" | head -1; }
+          get_id()  { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .id"                    | head -1; }
+          get_url() { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .browser_download_url"  | head -1; }
           dl()      { local id="$1"; [ -n "$id" ] && gh api "repos/$REPO/releases/assets/$id" \
                         -H "Accept: application/octet-stream" || true; }
 
-          # Windows NSIS installer + signature
           export WIN_EXE_URL=$(get_url '_x64-setup\\.exe$')
           export WIN_SIG=$(dl "$(get_id '_x64-setup\\.exe\\.sig$')")
-
-          # macOS universal app tarball + signature (used by the updater, not the .dmg)
-          export MAC_TAR_URL=$(get_url '_universal\\.app\\.tar\\.gz$')
-          export MAC_SIG=$(dl "$(get_id '_universal\\.app\\.tar\\.gz\\.sig$')")
-
           export TAG
 
           python3 <<'EOF'
@@ -127,19 +102,10 @@ jobs:
           tag     = os.environ['TAG']
           win_url = os.environ.get('WIN_EXE_URL', '').strip()
           win_sig = os.environ.get('WIN_SIG',     '').strip()
-          mac_url = os.environ.get('MAC_TAR_URL', '').strip()
-          mac_sig = os.environ.get('MAC_SIG',     '').strip()
 
           platforms = {}
-
           if win_url and win_sig:
               platforms['windows-x86_64'] = {'signature': win_sig, 'url': win_url}
-
-          if mac_url and mac_sig:
-              # Universal binary serves both Intel and Apple Silicon
-              entry = {'signature': mac_sig, 'url': mac_url}
-              platforms['darwin-x86_64']  = entry
-              platforms['darwin-aarch64'] = entry
 
           payload = {
               'version':  tag,

@@ -43,12 +43,6 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "category": "Music",
-    "macOS": {
-      "minimumSystemVersion": "10.15",
-      "signingIdentity": "-",
-      "entitlements": "entitlements.plist"
-    }
+    ]
   }
 }
