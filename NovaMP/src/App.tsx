@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 const isMac = navigator.userAgent.includes("Mac OS X");
@@ -15,16 +17,44 @@ interface Server {
   maxPlayers: number;
 }
 
+type UpdatePhase = "checking" | "updating" | "done";
+
 function App() {
+  const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("checking");
+  const [updateProgress, setUpdateProgress] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const unlisteners: Array<() => void> = [];
+
+    const setup = async () => {
+      unlisteners.push(
+        await listen("update-available", () => setUpdatePhase("updating")),
+        await listen<number>("update-progress", (e) => setUpdateProgress(e.payload)),
+        await listen("update-installing", () => setUpdateProgress(100)),
+        await listen("update-not-available", () => setUpdatePhase("done")),
+      );
+
+      // fallback: proceed to main screen if no event in 10s (network error etc.)
+      const fallback = setTimeout(() => setUpdatePhase("done"), 10000);
+      unlisteners.push(() => clearTimeout(fallback));
+
+      await invoke("check_update");
+    };
+
+    setup();
+
+    return () => unlisteners.forEach((fn) => fn());
+  }, []);
+
+  useEffect(() => {
+    if (updatePhase !== "done") return;
     fetchServers();
     const interval = setInterval(fetchServers, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [updatePhase]);
 
   const fetchServers = async () => {
     try {
@@ -37,6 +67,30 @@ function App() {
       setLoading(false);
     }
   };
+
+  if (updatePhase !== "done") {
+    return (
+      <div className="update-screen">
+        <div className="update-content">
+          <h1 className="update-logo">Nova<span>MP</span></h1>
+          <p className="update-label">
+            {updatePhase === "checking"
+              ? "Se verifica actualizari..."
+              : "Se actualizeaza NovaMP..."}
+          </p>
+          <div className="update-bar-track">
+            <div
+              className="update-bar-fill"
+              style={{ width: updatePhase === "updating" ? `${updateProgress}%` : "0%" }}
+            />
+          </div>
+          {updatePhase === "updating" && (
+            <span className="update-pct">{Math.round(updateProgress)}%</span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="launcher">
