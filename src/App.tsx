@@ -24,7 +24,6 @@ function App() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [servers, setServers] = useState<Server[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
@@ -61,10 +60,8 @@ function App() {
       const res = await fetch("http://152.70.16.120:3000/servers");
       const data = await res.json();
       setServers(data);
-    } catch (err) {
-      console.error("Masterlist offline");
-    } finally {
-      setLoading(false);
+    } catch {
+      // silent — keep showing the last known list
     }
   };
 
@@ -129,8 +126,7 @@ function App() {
           </div>
 
           <div className="server-list">
-            {loading && <p style={{color: "#888"}}>Se incarca serverele...</p>}
-            {!loading && servers.length === 0 && <p style={{color: "#888"}}>Niciun server online</p>}
+            {servers.length === 0 && <p style={{color: "#888"}}>Niciun server online</p>}
             {servers.map((server) => (
               <div
                 key={server.id}
