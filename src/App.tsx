@@ -58,7 +58,7 @@ function App() {
 
   const fetchServers = async () => {
     try {
-      const res = await fetch("http://localhost:3000/servers");
+      const res = await fetch("http://152.70.16.120:3000/servers");
       const data = await res.json();
       setServers(data);
     } catch (err) {
