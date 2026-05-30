@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Generate all NovaMP icons from scratch with proper bounds."""
+"""Generate all NovaMP icons from scratch with proper bounds (Windows only)."""
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import os
-import subprocess
-import shutil
 
 ICONS_DIR = os.path.join(os.path.dirname(__file__), '..', 'src-tauri', 'icons')
 
@@ -68,28 +66,6 @@ def save_png(img: Image.Image, path: str, size: int) -> None:
     print(f'  wrote {path}  ({size}×{size})')
 
 
-def build_icns(source: Image.Image, out_path: str) -> None:
-    iconset = out_path.replace('.icns', '.iconset')
-    os.makedirs(iconset, exist_ok=True)
-    specs = [
-        ('icon_16x16.png',       16),
-        ('icon_16x16@2x.png',    32),
-        ('icon_32x32.png',       32),
-        ('icon_32x32@2x.png',    64),
-        ('icon_128x128.png',    128),
-        ('icon_128x128@2x.png', 256),
-        ('icon_256x256.png',    256),
-        ('icon_256x256@2x.png', 512),
-        ('icon_512x512.png',    512),
-        ('icon_512x512@2x.png',1024),
-    ]
-    for name, sz in specs:
-        save_png(source, os.path.join(iconset, name), sz)
-    subprocess.run(['iconutil', '-c', 'icns', iconset, '-o', out_path], check=True)
-    shutil.rmtree(iconset)
-    print(f'  wrote {out_path}')
-
-
 def build_ico(source: Image.Image, out_path: str) -> None:
     # Pillow's ICO plugin downscales the source image to each requested size.
     # Passing sizes= is the correct multi-resolution approach; append_images is for GIF.
@@ -104,10 +80,9 @@ def main() -> None:
     src = make_source(1024)
 
     print('\nPNG icons:')
-    save_png(src, os.path.join(ICONS_DIR, 'icon.png'),        256)
-    save_png(src, os.path.join(ICONS_DIR, '32x32.png'),        32)
-    save_png(src, os.path.join(ICONS_DIR, '128x128.png'),     128)
-    save_png(src, os.path.join(ICONS_DIR, '128x128@2x.png'),  256)
+    save_png(src, os.path.join(ICONS_DIR, 'icon.png'),    256)
+    save_png(src, os.path.join(ICONS_DIR, '32x32.png'),    32)
+    save_png(src, os.path.join(ICONS_DIR, '128x128.png'), 128)
 
     # Windows Store logos
     win_sizes = {
@@ -124,9 +99,6 @@ def main() -> None:
     }
     for name, sz in win_sizes.items():
         save_png(src, os.path.join(ICONS_DIR, name), sz)
-
-    print('\nmacOS .icns:')
-    build_icns(src, os.path.join(ICONS_DIR, 'icon.icns'))
 
     print('\nWindows .ico:')
     build_ico(src, os.path.join(ICONS_DIR, 'icon.ico'))
