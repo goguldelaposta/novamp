@@ -37,7 +37,7 @@ jobs:
             });
             return String(data.id);
 
-  # ── 2. Build Windows ───────────────────────────────────────────────────────
+  # ── 2. Build Windows, upload artifacts + latest.json ──────────────────────
   build:
     needs: create-release
     runs-on: windows-latest
@@ -70,58 +70,17 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          includeUpdaterJson: true
 
-  # ── 3. Assemble latest.json, then publish ─────────────────────────────────
+  # ── 3. Publish the release ────────────────────────────────────────────────
   publish-release:
     needs: [create-release, build]
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GH_PAT }}
-      RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
       TAG: ${{ github.ref_name }}
       REPO: ${{ github.repository }}
 
     steps:
-      - name: Generate latest.json
-        run: |
-          ASSETS=$(gh api "repos/$REPO/releases/$RELEASE_ID/assets" --paginate)
-
-          get_id()  { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .id"                    | head -1; }
-          get_url() { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .browser_download_url"  | head -1; }
-          dl()      { local id="$1"; [ -n "$id" ] && gh api "repos/$REPO/releases/assets/$id" \
-                        -H "Accept: application/octet-stream" || true; }
-
-          export WIN_EXE_URL=$(get_url '_x64-setup\\.exe$')
-          export WIN_SIG=$(dl "$(get_id '_x64-setup\\.exe\\.sig$')")
-          export TAG
-
-          python3 <<'EOF'
-          import os, json
-          from datetime import datetime, timezone
-
-          tag     = os.environ['TAG']
-          win_url = os.environ.get('WIN_EXE_URL', '').strip()
-          win_sig = os.environ.get('WIN_SIG',     '').strip()
-
-          platforms = {}
-          if win_url and win_sig:
-              platforms['windows-x86_64'] = {'signature': win_sig, 'url': win_url}
-
-          payload = {
-              'version':  tag,
-              'notes':    '',
-              'pub_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'platforms': platforms,
-          }
-
-          print(json.dumps(payload, indent=2))
-
-          with open('latest.json', 'w') as f:
-              json.dump(payload, f, indent=2)
-          EOF
-
-      - name: Upload latest.json to release
-        run: gh release upload "$TAG" latest.json --clobber --repo "$REPO"
-
       - name: Publish release
         run: gh release edit "$TAG" --draft=false --repo "$REPO"
